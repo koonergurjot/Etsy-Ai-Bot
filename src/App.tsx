@@ -1,11 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { 
-  Terminal, Activity, Users, Package, DollarSign, 
-  Settings, MessageSquare, Zap, Shield, Database,
-  Cpu, Rocket, Crosshair, BarChart, FileText,
-  ChevronRight, ArrowUpRight
-} from 'lucide-react';
+import { Activity, Users, MessageSquare, ArrowUpRight } from 'lucide-react';
 
 const CREW = [
   { id: 'andrew', name: 'Andrew', role: 'Commander / Founder', task: 'Roaming', room: 'bridge', color: 'text-blue-400', bg: 'bg-blue-400/10', border: 'border-blue-400/30', avatar: '👨‍🚀' },
@@ -14,7 +9,7 @@ const CREW = [
   { id: 'forge', name: 'Forge', role: 'Factory', task: 'Refining mockup renders', room: 'factory', color: 'text-orange-400', bg: 'bg-orange-400/10', border: 'border-orange-400/30', avatar: '⚒️' },
   { id: 'pixel', name: 'Pixel', role: 'Media', task: 'Iterating on brand visual templates', room: 'media', color: 'text-pink-400', bg: 'bg-pink-400/10', border: 'border-pink-400/30', avatar: '🎨' },
   { id: 'cipher', name: 'Cipher', role: 'Comms', task: 'Routing inter-agent dispatches', room: 'comms', color: 'text-purple-400', bg: 'bg-purple-400/10', border: 'border-purple-400/30', avatar: '📡' },
-  { id: 'atlas', name: 'Atlas', role: 'Strategy', task: 'Compiling competitive intelligence', room: 'strategy', color: 'text-yellow-400', bg: 'bg-yellow-400/10', border: 'border-yellow-400/30', avatar: '🗺️' },
+  { id: 'atlas', name: 'Atlas', role: 'Strategy', task: 'Compiling competitive intelligence', room: 'war_room', color: 'text-yellow-400', bg: 'bg-yellow-400/10', border: 'border-yellow-400/30', avatar: '🗺️' },
   { id: 'queen', name: 'Queen', role: 'Archives', task: 'Checking image quality standards', room: 'archives', color: 'text-red-400', bg: 'bg-red-400/10', border: 'border-red-400/30', avatar: '👑' },
   { id: 'ledger', name: 'Ledger', role: 'Treasury', task: 'Signal analysis', room: 'treasury', color: 'text-emerald-400', bg: 'bg-emerald-400/10', border: 'border-emerald-400/30', avatar: '📊' },
 ];
@@ -142,6 +137,10 @@ export default function App() {
     };
 
     ws.onclose = () => {
+      setWsStatus('disconnected');
+    };
+
+    ws.onerror = () => {
       setWsStatus('disconnected');
     };
 
@@ -448,8 +447,8 @@ export default function App() {
               <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
             </div>
             <div className="flex-1 overflow-y-auto p-3 space-y-3">
-              {comms.map((msg, i) => (
-                <div key={i} className="text-[10px]">
+              {comms.map((msg) => (
+                <div key={`${msg.agent}-${msg.time}`} className="text-[10px]">
                   <div className="flex items-center justify-between mb-1">
                     <span className={`font-bold ${msg.color}`}>{msg.agent}</span>
                     <span className="text-gray-600">{msg.time}</span>
@@ -471,7 +470,7 @@ export default function App() {
         <div className="flex-1 overflow-hidden relative flex items-center">
           <motion.div 
             className="flex whitespace-nowrap text-[10px] text-gray-400"
-            animate={{ x: [0, -1000] }}
+            animate={{ x: ["0%", "-50%"] }}
             transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
           >
             {/* Duplicate ticker items for seamless loop */}
