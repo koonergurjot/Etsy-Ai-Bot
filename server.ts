@@ -14,6 +14,10 @@ async function startServer() {
   const server = http.createServer(app);
   const wss = new WebSocketServer({ server });
 
+  wss.on('error', (err: Error) => {
+    console.error('WebSocketServer error:', err.message);
+  });
+
   // API routes FIRST
   app.get('/api/health', (req, res) => {
     res.json({ status: 'ok' });
@@ -37,7 +41,7 @@ async function startServer() {
         { type: 'AGENT_TASK_UPDATE', payload: { agentId: 'nova', task: 'Analyzing top 10 Etsy listings for "Cyberpunk"', room: 'research' } },
         { type: 'AGENT_TASK_UPDATE', payload: { agentId: 'forge', task: 'Rendering 3D mockup for Hoodie_v2', room: 'factory' } },
         { type: 'AGENT_TASK_UPDATE', payload: { agentId: 'pixel', task: 'Generating neon color palettes', room: 'media' } },
-        { type: 'AGENT_TASK_UPDATE', payload: { agentId: 'atlas', task: 'Competitor pricing updated', room: 'strategy' } },
+        { type: 'AGENT_TASK_UPDATE', payload: { agentId: 'atlas', task: 'Competitor pricing updated', room: 'war_room' } },
         { type: 'AGENT_TASK_UPDATE', payload: { agentId: 'ultron', task: 'Delegating tasks to Nova and Forge', room: 'bridge' } },
         { type: 'AGENT_TASK_UPDATE', payload: { agentId: 'cipher', task: 'Syncing logs to main database', room: 'comms' } },
         { type: 'COMM_MESSAGE', payload: { agent: 'Nova', text: 'Found a trending keyword: "Synthwave". Passing to Pixel.', time: new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }), color: 'text-green-400' } },
@@ -55,6 +59,11 @@ async function startServer() {
 
     ws.on('close', () => {
       console.log('Client disconnected');
+      clearInterval(interval);
+    });
+
+    ws.on('error', (err: Error) => {
+      console.error('WebSocket client error:', err.message);
       clearInterval(interval);
     });
   });
@@ -79,4 +88,7 @@ async function startServer() {
   });
 }
 
-startServer();
+startServer().catch((err) => {
+  console.error('Failed to start server:', err);
+  process.exit(1);
+});
