@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ULTRONOS — Space Station Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=VT323&family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet" />
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body {
+        background: #05050f;
+        color: #ccd;
+        font-family: 'Share Tech Mono', 'VT323', monospace;
+        overflow-x: hidden;
+        min-height: 100vh;
+      }
+      #root { min-height: 100vh; }
+      ::-webkit-scrollbar { width: 4px; }
+      ::-webkit-scrollbar-track { background: rgba(0,0,0,0.3); }
+      ::-webkit-scrollbar-thumb { background: rgba(0,255,255,0.2); border-radius: 2px; }
+      ::-webkit-scrollbar-thumb:hover { background: rgba(0,255,255,0.4); }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
