@@ -99,7 +99,12 @@ export class HermesWatcher extends EventEmitter {
   async readNewLines() {
     if (!existsSync(this.logPath)) return;
     const { size } = statSync(this.logPath);
-    if (size <= this.lastSize) return;
+    if (size < this.lastSize) {
+      // Log was truncated/rotated; reset offset so we continue from the new file start.
+      this.lastSize = 0;
+    } else if (size === this.lastSize) {
+      return;
+    }
 
     await new Promise(resolve => {
       const stream = createReadStream(this.logPath, { start: this.lastSize });
