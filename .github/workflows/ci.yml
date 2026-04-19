@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+    branches: [main, "claude/**", "codex/**", "reconcile/**"]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    name: Build & Validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build frontend (Vite)
+        run: npm run build
+        env:
+          VITE_API_BASE_URL: http://localhost:3001
+          VITE_WS_URL: ws://localhost:3001
+
+      - name: Check for hardcoded secrets
+        run: |
+          if grep -rE '(api_key|apiKey|API_KEY)\s*[=:]\s*"[a-zA-Z0-9]{20,}"' \
+            --include="*.js" --include="*.ts" --include="*.jsx" --include="*.tsx" \
+            frontend/ backend/ 2>/dev/null; then
+            echo "ERROR: Possible hardcoded API key in source files"
+            exit 1
+          fi
+          echo "Secret scan: clean"
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+          retention-days: 7
