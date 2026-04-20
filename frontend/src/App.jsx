@@ -1,6 +1,53 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 
 // ═══════════════════════════════════════════════════════════════
+// WEBSOCKET — Real-time data from ULTRONOS backend
+// Falls back to simulation automatically when backend is offline
+// ═══════════════════════════════════════════════════════════════
+
+function useRealtimeData() {
+  const [connected, setConnected] = useState(false);
+  const [wsEtsyStats, setWsEtsyStats] = useState(null);
+  const [agentUpdates, setAgentUpdates] = useState({});
+  const wsRef = useRef(null);
+  const retryRef = useRef(null);
+
+  useEffect(() => {
+    const WS_URL = import.meta.env?.VITE_WS_URL || "ws://localhost:3001";
+
+    function connect() {
+      try {
+        const ws = new WebSocket(WS_URL);
+        wsRef.current = ws;
+        ws.onopen = () => { setConnected(true); clearTimeout(retryRef.current); };
+        ws.onmessage = ({ data }) => {
+          try {
+            const msg = JSON.parse(data);
+            if (msg.type === "init") {
+              if (msg.etsyStats) setWsEtsyStats(msg.etsyStats);
+              if (msg.agentState) setAgentUpdates(msg.agentState);
+            } else if (msg.type === "etsyStats") {
+              setWsEtsyStats(msg);
+            } else if (msg.type === "agentUpdate" || msg.type === "taskComplete") {
+              setAgentUpdates(prev => ({ ...prev, [msg.agent]: msg }));
+            }
+          } catch { /* ignore parse errors */ }
+        };
+        ws.onclose = () => { setConnected(false); retryRef.current = setTimeout(connect, 4000); };
+        ws.onerror = () => ws.close();
+      } catch {
+        retryRef.current = setTimeout(connect, 4000);
+      }
+    }
+
+    connect();
+    return () => { clearTimeout(retryRef.current); wsRef.current?.close(); };
+  }, []);
+
+  return { connected, wsEtsyStats, agentUpdates };
+}
+
+// ═══════════════════════════════════════════════════════════════
 // DATA — Rich mock data for the ULTRONOS Space Station Dashboard
 // ═══════════════════════════════════════════════════════════════
 
@@ -710,7 +757,7 @@ function ZoneFilter({ activeZone, setActiveZone }) {
 function RoomCard({ room, agents, onClick, selected, onAgentHover, onAgentClick }) {
   const roomAgents = agents.filter(a => {
     const r = ROOMS.find(rm => rm.id === room.id);
-    return a.zone === r?.zone || AGENTS.find(ag => ag.id === a.id && getRoomForAgent(ag) === room.id);
+    return a.zone === r?.zone || agents.find(ag => ag.id === a.id && getRoomForAgent(ag) === room.id);
   });
   const activeCount = roomAgents.filter(a => a.status === "active").length;
   const zone = ZONES[room.zone];
@@ -815,6 +862,7 @@ function RoomCard({ room, agents, onClick, selected, onAgentHover, onAgentClick 
 // ═══════════════════════════════════════════════════════════════
 
 export default function UltronosDashboard() {
+  const [agents, setAgents] = useState(AGENTS);
   const [selectedRoom, setSelectedRoom] = useState("bridge");
   const [selectedAgent, setSelectedAgent] = useState(null);
   const [hoveredAgent, setHoveredAgent] = useState(null);
@@ -828,6 +876,27 @@ export default function UltronosDashboard() {
   const [experiments, setExperiments] = useState(EXPERIMENTS);
   const [activeView, setActiveView] = useState("station"); // station, modules
   const [commsMessages, setCommsMessages] = useState(COMMS);
+
+  const { connected, wsEtsyStats, agentUpdates } = useRealtimeData();
+
+  // Apply real agent updates from Hermes log watcher
+  useEffect(() => {
+    if (!agentUpdates || Object.keys(agentUpdates).length === 0) return;
+    setAgents(prev => prev.map(a => {
+      const u = agentUpdates[a.id];
+      if (!u) return a;
+      return {
+        ...a,
+        status: u.status || a.status,
+        currentTask: u.task || a.currentTask,
+      };
+    }));
+  }, [agentUpdates]);
+
+  // Apply real Etsy stats when available
+  useEffect(() => {
+    if (wsEtsyStats?.revenue?.total) setRevenue(wsEtsyStats.revenue.total);
+  }, [wsEtsyStats]);
 
   // Ticker animation
   useEffect(() => {
@@ -890,12 +959,12 @@ export default function UltronosDashboard() {
     setSelectedAgent(agent);
   }, []);
 
-  const activeAgents = AGENTS.filter(a => a.status === "active").length;
-  const totalAgents = AGENTS.length;
+  const activeAgents = agents.filter(a => a.status === "active").length;
+  const totalAgents = agents.length;
   const phase = getDayNightPhase();
   const dayStr = `Day ${Math.floor((Date.now() / 86400000) % 365)}`;
   const filteredRooms = activeZone === "all" ? ROOMS : ROOMS.filter(r => r.zone === activeZone);
-  const errorCount = AGENTS.filter(a => a.status === "error").length;
+  const errorCount = agents.filter(a => a.status === "error").length;
 
   return (
     <div style={{
@@ -920,6 +989,10 @@ export default function UltronosDashboard() {
           <span style={{ color: "#00ffff", fontSize: 18, fontFamily: "'Orbitron', sans-serif", fontWeight: 900, letterSpacing: 3 }}>ULTRONOS</span>
           <span style={{ color: "rgba(255,255,255,0.15)" }}>|</span>
           <StatusDot status="active" size={6} label="STATION ONLINE" />
+          <span style={{ color: "rgba(255,255,255,0.15)" }}>|</span>
+          <span style={{ fontSize: 10, color: connected ? "#00ff41" : "#ffb000" }}>
+            {connected ? "⬤ LIVE" : "◌ SIM"}
+          </span>
           {errorCount > 0 && (
             <>
               <span style={{ color: "rgba(255,255,255,0.15)" }}>|</span>
@@ -929,8 +1002,8 @@ export default function UltronosDashboard() {
         </div>
         <div style={{ display: "flex", gap: 24, fontSize: 12 }}>
           <span><span style={{ color: "rgba(255,255,255,0.35)" }}>REVENUE</span> <span style={{ color: "#00ff41", fontFamily: "'Orbitron', sans-serif", fontWeight: 700 }}>${revenue.toLocaleString("en-US", { minimumFractionDigits: 2 })}</span></span>
-          <span><span style={{ color: "rgba(255,255,255,0.35)" }}>ORDERS</span> <span style={{ color: "#ffb000" }}>47</span></span>
-          <span><span style={{ color: "rgba(255,255,255,0.35)" }}>PRODUCTS</span> <span style={{ color: "#bf5fff" }}>18 LIVE</span></span>
+          <span><span style={{ color: "rgba(255,255,255,0.35)" }}>ORDERS</span> <span style={{ color: "#ffb000" }}>{wsEtsyStats?.orders?.total ?? 47}</span></span>
+          <span><span style={{ color: "rgba(255,255,255,0.35)" }}>PRODUCTS</span> <span style={{ color: "#bf5fff" }}>{wsEtsyStats?.products?.active ?? 18} LIVE</span></span>
           <span><span style={{ color: "rgba(255,255,255,0.35)" }}>CREW</span> <span style={{ color: "#00ffff" }}>{activeAgents}/{totalAgents}</span></span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 12, fontSize: 11 }}>
@@ -969,7 +1042,7 @@ export default function UltronosDashboard() {
           </div>
           <div style={{ fontSize: 9, color: "rgba(255,255,255,0.2)", marginBottom: 12 }}>Click for full dossier</div>
 
-          {AGENTS.map(agent => (
+          {agents.map(agent => (
             <div key={agent.id}
               onClick={() => setSelectedAgent(agent)}
               onMouseEnter={(e) => handleAgentHover(agent, e.clientX, e.clientY)}
@@ -1023,7 +1096,7 @@ export default function UltronosDashboard() {
               {/* Zone Progress Summary */}
               <div style={{ display: "flex", gap: 10, marginBottom: 4 }}>
                 {Object.entries(ZONES).map(([key, zone]) => {
-                  const zoneAgents = AGENTS.filter(a => a.zone === key);
+                  const zoneAgents = agents.filter(a => a.zone === key);
                   const activeInZone = zoneAgents.filter(a => a.status === "active").length;
                   return (
                     <div key={key} style={{
@@ -1061,7 +1134,7 @@ export default function UltronosDashboard() {
               }}>
                 {filteredRooms.map(room => (
                   <RoomCard
-                    key={room.id} room={room} agents={AGENTS}
+                    key={room.id} room={room} agents={agents}
                     onClick={setSelectedRoom} selected={selectedRoom === room.id}
                     onAgentHover={handleAgentHover} onAgentClick={handleAgentClick}
                   />
@@ -1101,7 +1174,7 @@ export default function UltronosDashboard() {
                 <LifeSupportModule vitals={vitals} />
                 <EngineeringModule pipelines={pipelines} />
                 <ScienceLabModule experiments={experiments} />
-                <LeaderboardModule agents={AGENTS} />
+                <LeaderboardModule agents={agents} />
                 <div style={{ gridColumn: "1 / -1" }}>
                   <MilestonesModule milestones={MILESTONES} />
                 </div>
@@ -1119,7 +1192,7 @@ export default function UltronosDashboard() {
             const room = ROOMS.find(r => r.id === selectedRoom);
             if (!room) return null;
             const zone = ZONES[room.zone];
-            const roomAgents = AGENTS.filter(a => {
+            const roomAgents = agents.filter(a => {
               if (room.id === "bridge") return a.zone === "command";
               if (room.id === "media") return a.zone === "quarters";
               if (room.id === "research") return a.zone === "science" && a.id !== "atlas";
