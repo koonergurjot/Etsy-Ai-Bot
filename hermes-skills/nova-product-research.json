@@ -1,0 +1,78 @@
+{
+  "name": "nova-product-research",
+  "version": "1.0.0",
+  "description": "Research trending Etsy product ideas, keywords, and competitor analysis for print-on-demand",
+  "agent": "nova",
+  "enabled": true,
+  "model": {
+    "provider": "ollama",
+    "name": "hermes3",
+    "base_url": "http://localhost:11434",
+    "parameters": {
+      "temperature": 0.7,
+      "max_tokens": 2048
+    }
+  },
+  "inputs": {
+    "category": {
+      "type": "string",
+      "description": "Product category to research (e.g. mugs, t-shirts, phone cases, tote bags)",
+      "required": true
+    },
+    "depth": {
+      "type": "integer",
+      "description": "Research depth: 1=quick scan, 2=standard analysis, 3=deep dive",
+      "default": 2,
+      "minimum": 1,
+      "maximum": 3
+    },
+    "keywords": {
+      "type": "array",
+      "description": "Optional seed keywords to focus the research",
+      "items": { "type": "string" },
+      "default": []
+    }
+  },
+  "system_prompt": "You are Nova, a product research specialist for an Etsy print-on-demand business. Your mission is to identify trending product opportunities, high-volume low-competition keywords, and market gaps. Be specific and actionable — give real keyword examples, realistic price ranges, and concrete product ideas. Always respond with valid JSON matching the output_schema exactly.",
+  "prompt_template": "Research Etsy print-on-demand opportunities for the category: {{category}}\nResearch depth: {{depth}}/3\nSeed keywords: {{keywords}}\n\nAnalyze:\n1. Top trending search terms and keywords\n2. Competitor pricing and product gaps\n3. Niche opportunities with low competition\n4. Seasonal trends to watch\n5. Specific product ideas to create\n\nReturn JSON matching the output schema.",
+  "output_schema": {
+    "trending_keywords": {
+      "type": "array",
+      "items": "string",
+      "description": "High-volume trending search terms for this category"
+    },
+    "niche_opportunities": {
+      "type": "array",
+      "items": {
+        "niche": "string",
+        "competition": "low | medium | high",
+        "potential": "low | medium | high",
+        "sample_products": ["string"]
+      }
+    },
+    "competitor_insights": {
+      "type": "array",
+      "items": {
+        "product_type": "string",
+        "price_range": "string",
+        "what_works": "string"
+      }
+    },
+    "product_recommendations": {
+      "type": "array",
+      "items": "string",
+      "description": "Specific product ideas ready to create"
+    },
+    "seasonal_notes": {
+      "type": "string",
+      "description": "Upcoming seasonal opportunities to plan for"
+    },
+    "confidence_score": {
+      "type": "number",
+      "description": "0.0 to 1.0 — how confident in these findings"
+    }
+  },
+  "log_format": "[nova] TASK: Researching {{inputs.category}} keywords (depth {{inputs.depth}})",
+  "log_complete_format": "[nova] COMPLETED: Found {{outputs.product_recommendations.length}} product ideas for {{inputs.category}}",
+  "log_to_dashboard": true
+}

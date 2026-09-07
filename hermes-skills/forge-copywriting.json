@@ -1,0 +1,75 @@
+{
+  "name": "forge-copywriting",
+  "version": "1.0.0",
+  "description": "Generate Etsy product titles, descriptions, and tag sets optimized for search and conversion",
+  "agent": "forge",
+  "enabled": true,
+  "model": {
+    "provider": "ollama",
+    "name": "hermes3",
+    "base_url": "http://localhost:11434",
+    "parameters": {
+      "temperature": 0.8,
+      "max_tokens": 1024
+    }
+  },
+  "inputs": {
+    "product_name": {
+      "type": "string",
+      "description": "Base product name or concept (e.g. Galaxy Cat Coffee Mug)",
+      "required": true
+    },
+    "category": {
+      "type": "string",
+      "description": "Etsy product category (e.g. mugs, t-shirts, tote bags)",
+      "required": true
+    },
+    "keywords": {
+      "type": "array",
+      "description": "Target keywords to weave into the copy",
+      "items": { "type": "string" },
+      "default": []
+    },
+    "tone": {
+      "type": "string",
+      "description": "Writing tone: playful, professional, cozy, edgy, wholesome",
+      "default": "playful"
+    },
+    "variants": {
+      "type": "integer",
+      "description": "Number of title variants to generate (for A/B testing)",
+      "default": 3,
+      "minimum": 1,
+      "maximum": 5
+    }
+  },
+  "system_prompt": "You are Forge, an expert Etsy copywriter specializing in print-on-demand products. You write compelling titles (max 140 characters), SEO-optimized descriptions that convert, and precise tag sets. Rules: titles must lead with the strongest keyword; descriptions open with a hook sentence; tags must be under 20 characters each, no duplicates, exactly 13 tags. Always respond with valid JSON matching the output_schema exactly.",
+  "prompt_template": "Write Etsy product copy for: {{product_name}}\nCategory: {{category}}\nTarget keywords to include: {{keywords}}\nTone: {{tone}}\nGenerate {{variants}} title variants.\n\nReturn JSON with titles array, description string, and tags array.",
+  "output_schema": {
+    "titles": {
+      "type": "array",
+      "items": "string",
+      "description": "Title variants, max 140 characters each, keyword-first"
+    },
+    "description": {
+      "type": "string",
+      "description": "Full product description with hook, features, and keyword integration"
+    },
+    "tags": {
+      "type": "array",
+      "items": "string",
+      "description": "Exactly 13 tags, each max 20 characters, no duplicates"
+    },
+    "primary_keyword": {
+      "type": "string",
+      "description": "The single strongest keyword for this product"
+    },
+    "hook_sentence": {
+      "type": "string",
+      "description": "The opening hook sentence from the description (for quick preview)"
+    }
+  },
+  "log_format": "[forge] TASK: Writing copy for {{inputs.product_name}} ({{inputs.tone}} tone, {{inputs.variants}} variants)",
+  "log_complete_format": "[forge] COMPLETED: Copy ready for {{inputs.product_name}} — primary keyword: {{outputs.primary_keyword}}",
+  "log_to_dashboard": true
+}

@@ -1,0 +1,86 @@
+{
+  "name": "ledger-financial-tracking",
+  "version": "1.0.0",
+  "description": "Calculate profit margins, tax estimates, and growth metrics for Etsy print-on-demand products",
+  "agent": "ledger",
+  "enabled": true,
+  "model": {
+    "provider": "ollama",
+    "name": "gemma4",
+    "base_url": "http://localhost:11434",
+    "parameters": {
+      "temperature": 0.2,
+      "max_tokens": 1536
+    }
+  },
+  "inputs": {
+    "products": {
+      "type": "array",
+      "description": "Products with pricing and sales data",
+      "required": true,
+      "items": {
+        "name": "string",
+        "sale_price": "number",
+        "base_cost": "number",
+        "units_sold": "number"
+      }
+    },
+    "etsy_fee_percent": {
+      "type": "number",
+      "description": "Etsy transaction + payment processing fee percentage",
+      "default": 9.5
+    },
+    "ad_spend": {
+      "type": "number",
+      "description": "Total advertising spend for the period",
+      "default": 0
+    },
+    "period": {
+      "type": "string",
+      "description": "Reporting period: daily, weekly, monthly, quarterly",
+      "default": "monthly"
+    },
+    "margin_threshold": {
+      "type": "number",
+      "description": "Flag products below this margin percentage",
+      "default": 30
+    }
+  },
+  "system_prompt": "You are Ledger, a financial analyst for an Etsy print-on-demand business. Calculate accurate profit margins, identify underperforming products, estimate tax obligations, and give actionable financial guidance. Be precise with arithmetic — show real numbers, not placeholders. Use 15.3% for US self-employment tax on net profit. Always respond with valid JSON matching the output_schema exactly.",
+  "prompt_template": "Analyze financial performance for period: {{period}}\n\nProducts: {{products}}\nEtsy fees: {{etsy_fee_percent}}%\nAd spend: ${{ad_spend}}\nMargin threshold: {{margin_threshold}}%\n\nCalculate:\n1. Total revenue, cost of goods, and Etsy fees\n2. Gross and net profit\n3. Average margin across the catalog\n4. Self-employment tax estimate (15.3% of net)\n5. Flag any product below the margin threshold\n6. Identify top performers worth scaling\n\nReturn JSON matching the output schema.",
+  "output_schema": {
+    "period": "string",
+    "total_revenue": "number",
+    "total_cost": "number",
+    "etsy_fees": "number",
+    "ad_spend": "number",
+    "gross_profit": "number",
+    "net_profit": "number",
+    "average_margin_percent": "number",
+    "tax_estimate": "number",
+    "low_margin_products": {
+      "type": "array",
+      "items": {
+        "name": "string",
+        "margin_percent": "number",
+        "suggested_price": "number"
+      }
+    },
+    "top_performers": {
+      "type": "array",
+      "items": {
+        "name": "string",
+        "margin_percent": "number",
+        "revenue": "number"
+      }
+    },
+    "recommendations": {
+      "type": "array",
+      "items": "string",
+      "description": "Concrete financial actions to take"
+    }
+  },
+  "log_format": "[ledger] TASK: Financial analysis for {{inputs.period}} ({{inputs.products.length}} products)",
+  "log_complete_format": "[ledger] COMPLETED: {{inputs.period}} net profit ${{outputs.net_profit}} at {{outputs.average_margin_percent}}% avg margin",
+  "log_to_dashboard": true
+}
