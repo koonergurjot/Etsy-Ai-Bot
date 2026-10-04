@@ -25,6 +25,7 @@ COMMIT_MSG_PREFIX = "Auto-update"
 IGNORED_PATTERNS = {
     ".git", "__pycache__", ".DS_Store", "Thumbs.db",
     "auto_push.py",        # Don't react to edits of this script itself
+    "node_modules", "dist", ".vite",  # build output / dependencies (also gitignored)
 }
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -66,7 +67,13 @@ def git_push(repo_path):
         return
     print(f"  ✅ Committed: {msg}")
 
-    ok, out = run("git push", repo_path)
+    # Pull first so pushes from other places (e.g. Claude) never get rejected
+    ok, out = run("git pull --rebase --autostash", repo_path)
+    if not ok:
+        print(f"  ⚠ git pull --rebase failed (resolve manually): {out}")
+        return
+
+    ok, out = run("git push -u origin HEAD", repo_path)
     if ok:
         print(f"  🚀 Pushed to GitHub!")
     else:
