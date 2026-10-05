@@ -480,10 +480,10 @@ function AgentModal({ agent, onClose, onSave }) {
 
         {tab === "config" && (
           <div className="tab-body form">
-            <label>Zone<select value={cfg.zone} onChange={(e) => { const z = e.target.value; setCfg((c) => ({ ...c, zone: z, room: ROOMS.find((r) => r.zone === z)?.id || c.room })); }}>
-              {Object.entries(ZONES).map(([k, z]) => <option key={k} value={k}>{z.name}</option>)}</select></label>
+            <label>Zone<select value={cfg.zone} onChange={(e) => { const z = e.target.value; setCfg((c) => ({ ...c, zone: z, room: ROOMS.find((r) => r.zone === z).id })); }}>
+              {Object.entries(ZONES).filter(([k]) => ROOMS.some((r) => r.zone === k)).map(([k, z]) => <option key={k} value={k}>{z.name}</option>)}</select></label>
             <label>Home room<select value={cfg.room} onChange={(e) => set("room", e.target.value)}>
-              {(rooms.length ? rooms : ROOMS).map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}</select></label>
+              {rooms.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}</select></label>
             <label>Priority: {cfg.priority}<input type="range" min="1" max="10" value={cfg.priority} onChange={(e) => set("priority", +e.target.value)} /></label>
             <label className="check"><input type="checkbox" checked={cfg.autoDispatch} onChange={(e) => set("autoDispatch", e.target.checked)} /> Auto-dispatch tickets</label>
             <label>Shift<select value={cfg.shift} onChange={(e) => set("shift", e.target.value)}>{["DAY", "NIGHT", "CONTINUOUS"].map((s) => <option key={s}>{s}</option>)}</select></label>
@@ -591,16 +591,17 @@ export default function UltronosDashboard() {
   const onEvent = useCallback((m) => {
     const patch = (key, fn) => setAgents((prev) => prev.map((a) => (a.id === key ? fn(a) : a)));
     if (m.type === "init") {
-      if (m.etsyStats) setStats((s) => ({ revenue: m.etsyStats.revenue?.total || s.revenue, orders: m.etsyStats.orders?.total ?? s.orders, products: m.etsyStats.products?.active ?? s.products }));
+      if (m.etsyStats) setStats((s) => ({ revenue: m.etsyStats.revenue?.total ?? s.revenue, orders: m.etsyStats.orders?.total ?? s.orders, products: m.etsyStats.products?.active ?? s.products }));
       Object.values(m.agentState || {}).forEach((s) => patch(s.id, (a) => (s.lastSeen ? { ...a, status: s.status, ticket: { ...a.ticket, title: s.task } } : a)));
     } else if (m.type === "agentUpdate") {
       patch(m.agent, (a) => ({ ...a, status: m.status, ticket: { ...a.ticket, title: m.task || a.ticket.title } }));
       setFeed((f) => [{ agent: m.agent, color: "#66f0ff", msg: m.task, tone: m.status === "error" ? "error" : "active" }, ...f].slice(0, 12));
     } else if (m.type === "taskComplete") {
       completeTicket(m.agent, m.result);
+      patch(m.agent, (a) => ({ ...a, status: m.status || "active" }));
       setFeed((f) => [{ agent: m.agent, color: "#6dff9b", msg: `Completed: ${m.result}`, tone: "good" }, ...f].slice(0, 12));
     } else if (m.type === "etsyStats") {
-      setStats((s) => ({ revenue: m.revenue?.total || s.revenue, orders: m.orders?.total ?? s.orders, products: m.products?.active ?? s.products }));
+      setStats((s) => ({ revenue: m.revenue?.total ?? s.revenue, orders: m.orders?.total ?? s.orders, products: m.products?.active ?? s.products }));
     }
   }, [completeTicket]);
 
